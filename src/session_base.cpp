@@ -638,6 +638,26 @@ void zmq::session_base_t::start_connecting (bool wait_)
               tcp_connecter_t (io_thread, this, options, _addr, wait_);
         }
     }
+    // TODO add a QUIC implementation
+    else if (_addr->protocol == protocol_name::quic) {
+        if (!options.socks_proxy_address.empty ()) {
+            address_t *proxy_address = new (std::nothrow)
+                    address_t (protocol_name::tcp, options.socks_proxy_address,
+                               this->get_ctx ());
+            alloc_assert (proxy_address);
+            connecter = new (std::nothrow) socks_connecter_t (
+                    io_thread, this, options, _addr, proxy_address, wait_);
+            alloc_assert (connecter);
+            if (!options.socks_proxy_username.empty ()) {
+                reinterpret_cast<socks_connecter_t *> (connecter)
+                        ->set_auth_method_basic (options.socks_proxy_username,
+                                                 options.socks_proxy_password);
+            }
+        } else {
+            connecter = new (std::nothrow)
+                    tcp_connecter_t (io_thread, this, options, _addr, wait_);
+        }
+    }
 #if defined ZMQ_HAVE_IPC
     else if (_addr->protocol == protocol_name::ipc) {
         connecter = new (std::nothrow)

@@ -71,7 +71,8 @@ zmq::tcp_connecter_t::tcp_connecter_t (class io_thread_t *io_thread_,
       io_thread_, session_, options_, addr_, delayed_start_),
     _connect_timer_started (false)
 {
-    zmq_assert (_addr->protocol == protocol_name::tcp);
+    // TODO check if QUIC will use the same connecter
+    zmq_assert (_addr->protocol == protocol_name::tcp || _addr->protocol == protocol_name::quic);
 }
 
 zmq::tcp_connecter_t::~tcp_connecter_t ()

@@ -63,6 +63,7 @@ namespace protocol_name
 {
 static const char inproc[] = "inproc";
 static const char tcp[] = "tcp";
+static const char quic[] = "quic";
 static const char udp[] = "udp";
 #ifdef ZMQ_HAVE_OPENPGM
 static const char pgm[] = "pgm";

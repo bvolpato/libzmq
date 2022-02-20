@@ -349,6 +349,7 @@ int zmq::socket_base_t::check_protocol (const std::string &protocol_) const
         && protocol_ != protocol_name::ipc
 #endif
         && protocol_ != protocol_name::tcp
+        && protocol_ != protocol_name::quic
 #ifdef ZMQ_HAVE_WS
         && protocol_ != protocol_name::ws
 #endif
@@ -667,6 +668,27 @@ int zmq::socket_base_t::bind (const char *endpoint_uri_)
         return 0;
     }
 
+    // TODO this should use a QUIC implementation
+    if (protocol == protocol_name::quic) {
+        tcp_listener_t *listener =
+                new (std::nothrow) tcp_listener_t (io_thread, this, options);
+        alloc_assert (listener);
+        rc = listener->set_local_address (address.c_str ());
+        if (rc != 0) {
+            LIBZMQ_DELETE (listener);
+            event_bind_failed (make_unconnected_bind_endpoint_pair (address),
+                               zmq_errno ());
+            return -1;
+        }
+
+        // Save last endpoint URI
+        listener->get_local_address (_last_endpoint);
+
+        add_endpoint (make_unconnected_bind_endpoint_pair (_last_endpoint),
+                      static_cast<own_t *> (listener), NULL);
+        options.connected = true;
+        return 0;
+    }
 #ifdef ZMQ_HAVE_WS
 #ifdef ZMQ_HAVE_WSS
     if (protocol == protocol_name::ws || protocol == protocol_name::wss) {
@@ -916,7 +938,7 @@ int zmq::socket_base_t::connect_internal (const char *endpoint_uri_)
     alloc_assert (paddr);
 
     //  Resolve address (if needed by the protocol)
-    if (protocol == protocol_name::tcp) {
+    if (protocol == protocol_name::tcp || protocol == protocol_name::quic) {
         //  Do some basic sanity checks on tcp:// address syntax
         //  - hostname starts with digit or letter, with embedded '-' or '.'
         //  - IPv6 address may contain hex chars and colons.
@@ -1195,7 +1217,7 @@ int zmq::socket_base_t::term_endpoint (const char *endpoint_uri_)
     }
 
     const std::string resolved_endpoint_uri =
-      uri_protocol == protocol_name::tcp
+        (uri_protocol == protocol_name::tcp || uri_protocol == protocol_name::quic)
         ? resolve_tcp_addr (endpoint_uri_str, uri_path.c_str ())
         : endpoint_uri_str;
 
